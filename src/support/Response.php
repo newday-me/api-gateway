@@ -29,7 +29,7 @@ class Response
 
         // 内容
         if (is_array($data) || is_object($data)) {
-            $data = json_encode($data, 320);
+            $data = json_encode($data, JSON_UNESCAPED_UNICODE);
         }
         echo $data;
 

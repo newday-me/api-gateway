@@ -2,33 +2,19 @@
 
 namespace newday\gateway\hub;
 
-use newday\gateway\core\pack\ResponsePack;
-use newday\gateway\provider\ProviderConfig;
+use newday\gateway\core\traits\PackTrait;
 use newday\gateway\support\Request;
 use newday\gateway\core\Signature;
 use newday\gateway\core\api\ApiResponse;
 use newday\gateway\core\constant\NameConstant;
 use newday\gateway\core\exception\ServerException;
 use newday\gateway\provider\ProviderClient;
+use newday\gateway\provider\ProviderConfig;
+use newday\gateway\core\objects\ResponseObject;
 
 abstract class HubServer
 {
-    /**
-     * 请求打包对象
-     *
-     * @var ResponsePack
-     */
-    protected $responsePack;
-
-    /**
-     * 构造函数
-     *
-     * @param ResponsePack $responsePack
-     */
-    public function __construct(ResponsePack $responsePack = null)
-    {
-        $responsePack && $this->setResponsePack($responsePack);
-    }
+    use PackTrait;
 
     /**
      * 服务入口
@@ -51,7 +37,8 @@ abstract class HubServer
                 'line' => $e->getLine(),
                 'file' => $e->getFile()
             ];
-            return ApiResponse::serverError('服务发生意外', '', $extra, $responsePack);
+            $responseObject = ResponseObject::makeError('服务发生意外', '', $extra);
+            return new ApiResponse($responseObject, $responsePack);
         }
     }
 
@@ -65,7 +52,7 @@ abstract class HubServer
         $appKey = Request::getSingleton()->header(NameConstant::HEADER_NAME_API_KEY);
         $appToken = $this->getAppToken($appKey);
         if (empty($appToken)) {
-            throw new ServerException('获取应用密钥失败');
+            throw new ServerException('获取应用令牌失败');
         }
 
         $timestamp = Request::getSingleton()->header(NameConstant::HEADER_NAME_API_TIMESTAMP);
@@ -94,36 +81,18 @@ abstract class HubServer
             throw new ServerException('获取接口类名为空');
         }
 
+        $client = new ProviderClient($config);
+
+        // 解包对象
         $responsePack = $this->getResponsePack();
-        $client = new ProviderClient($config, $responsePack);
+        $client->setResponsePack($responsePack);
 
         $postData = Request::getSingleton()->input();
         return $client->request($apiClass, $postData);
     }
 
     /**
-     * 获取回复打包对象
-     *
-     * @return ResponsePack
-     */
-    public function getResponsePack()
-    {
-        return $this->responsePack;
-    }
-
-    /**
-     * 设置回复打包对象
-     *
-     * @param ResponsePack $responsePack
-     */
-    public function setResponsePack($responsePack)
-    {
-        $this->responsePack = $responsePack;
-    }
-
-
-    /**
-     * 获取应用token
+     * 获取应用令牌
      *
      * @param string $appKey
      * @return string

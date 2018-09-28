@@ -2,24 +2,17 @@
 
 namespace newday\gateway\core\objects;
 
-use newday\gateway\core\constant\DataConstant;
+use newday\gateway\core\constant\CodeConstant;
 
 class ResponseObject extends Object
 {
-
-    /**
-     * 结果类型
-     *
-     * @var int
-     */
-    protected $type = DataConstant::DATA_TYPE_API;
 
     /**
      *  状态码
      *
      * @var int
      */
-    protected $code = DataConstant::API_ERROR;
+    protected $code = CodeConstant::API_ERROR;
 
     /**
      * 提示
@@ -43,43 +36,58 @@ class ResponseObject extends Object
     protected $extra = [];
 
     /**
-     * 是否服务成功
+     * 构造对象
+     *
+     * @param integer $code
+     * @param string $msg
+     * @param string $data
+     * @param array $extra
+     * @return static
+     */
+    public static function make($code, $msg = '', $data = '', $extra = [])
+    {
+        $object = new static();
+        $object->setCode($code);
+        $object->setMsg($msg);
+        $object->setData($data);
+        $object->setExtra($extra);
+        return $object;
+    }
+
+    /**
+     * 成功对象
+     *
+     * @param string $msg
+     * @param string $data
+     * @param array $extra
+     * @return ResponseObject
+     */
+    public function makeSuccess($msg = '', $data = '', $extra = [])
+    {
+        return self::make(CodeConstant::API_SUCCESS, $msg, $data, $extra);
+    }
+
+    /**
+     * 失败对象
+     *
+     * @param string $msg
+     * @param string $data
+     * @param array $extra
+     * @return ResponseObject
+     */
+    public static function makeError($msg = '', $data = '', $extra = [])
+    {
+        return self::make(CodeConstant::API_ERROR, $msg, $data, $extra);
+    }
+
+    /**
+     * 是否成功
      *
      * @return bool
      */
-    public function isServerSuccess()
+    public function isSuccess()
     {
-        return $this->getType() == DataConstant::DATA_TYPE_API;
-    }
-
-    /**
-     * 是否接口成功
-     *
-     * @return bool
-     */
-    public function isApiSuccess()
-    {
-        return $this->getCode() == DataConstant::API_SUCCESS;
-    }
-
-    /**
-     * 获取类型
-     *
-     * @return int
-     */
-    public function getType()
-    {
-        return $this->type;
-    }
-
-    /**
-     * 设置类型
-     *
-     * @param int $type
-     */
-    public function setType($type)
-    {
-        $this->type = $type;
+        return $this->getCode() == CodeConstant::API_SUCCESS;
     }
 
     /**
@@ -171,7 +179,6 @@ class ResponseObject extends Object
     public function toArray()
     {
         return [
-            'type' => $this->getType(),
             'code' => $this->getCode(),
             'msg' => $this->getMsg(),
             'data' => $this->getData(),
@@ -187,7 +194,7 @@ class ResponseObject extends Object
      */
     public function validArray($array)
     {
-        if (is_array($array) && isset($array['type']) && isset($array['code'])) {
+        if (is_array($array) && isset($array['code'])) {
             return true;
         } else {
             return false;
@@ -203,7 +210,6 @@ class ResponseObject extends Object
     public function loadArray($array)
     {
         if ($this->validArray($array)) {
-            isset($array['type']) && $this->setType($array['type']);
             isset($array['code']) && $this->setCode($array['code']);
             isset($array['msg']) && $this->setMsg($array['msg']);
             isset($array['data']) && $this->setData($array['data']);

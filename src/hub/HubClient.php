@@ -4,14 +4,16 @@ namespace newday\gateway\hub;
 
 use newday\gateway\support\Http;
 use newday\gateway\core\Signature;
-use newday\gateway\core\pack\RequestPack;
-use newday\gateway\core\pack\ResponsePack;
+use newday\gateway\core\traits\PackTrait;
 use newday\gateway\core\api\ApiResponse;
 use newday\gateway\core\constant\NameConstant;
+use newday\gateway\core\objects\ResponseObject;
 use newday\gateway\core\exception\ServerException;
 
 class HubClient
 {
+    use PackTrait;
+
     /**
      * 配置
      *
@@ -20,31 +22,13 @@ class HubClient
     protected $config;
 
     /**
-     * 请求打包对象
-     *
-     * @var RequestPack
-     */
-    protected $requestPack;
-
-    /**
-     * 回复打包对象
-     *
-     * @var ResponsePack
-     */
-    protected $responsePack;
-
-    /**
      * 构造函数
      *
      * @param HubConfig $config
-     * @param RequestPack $requestPack
-     * @param ResponsePack $responsePack
      */
-    public function __construct(HubConfig $config = null, RequestPack $requestPack = null, ResponsePack $responsePack = null)
+    public function __construct(HubConfig $config = null)
     {
         $config && $this->setConfig($config);
-        $requestPack && $this->setRequestPack($requestPack);
-        $responsePack && $this->setResponsePack($responsePack);
     }
 
     /**
@@ -58,17 +42,19 @@ class HubClient
     public function request($apiName, array $postData = [], $timeout = 30)
     {
         try {
-            $serverUrl = $this->config->getServerUrl();
+            $config = $this->getConfig();
+
+            $serverUrl = $config->getServerUrl();
             if (empty($serverUrl)) {
-                throw new ServerException('应用地址为空');
+                throw new ServerException('应用服务地址为空');
             }
 
-            $appKey = $this->config->appKey;
+            $appKey = $config->getAppKey();
             if (empty($appKey)) {
                 throw new ServerException('应用密钥为空');
             }
 
-            $appToken = $this->config->appToken;
+            $appToken = $config->getAppToken();
             if (empty($appToken)) {
                 throw new ServerException('应用令牌为空');
             }
@@ -86,7 +72,7 @@ class HubClient
             ];
 
             // 服务主机
-            $serverIp = $this->config->getServerIpRand();
+            $serverIp = $config->getServerIpRand();
             if ($serverIp) {
                 $parse = parse_url($serverUrl);
                 $serverUrl = str_replace($parse['host'], $serverIp, $serverUrl);
@@ -94,10 +80,10 @@ class HubClient
             }
 
             // 请求头
-            $header = array_merge($header, $this->config->getServerHeader());
+            $header = array_merge($header, $config->getServerHeader());
 
-            // 选项
-            $timeout = $timeout ? $timeout : $this->config->getTimeout();
+            // 请求选项
+            $timeout = $timeout ? $timeout : $config->getTimeout();
             $option = [
                 'timeout' => $timeout
             ];
@@ -107,22 +93,21 @@ class HubClient
             $requestData = $requestPack->pack($postData);
 
             // 请求接口
-            $http = Http::getSingleton();
+            $http = Http::getInstance();
             $responseDataJson = $http->request($serverUrl, $requestData, $header, $option);
 
-            // 结果处理
+            // 响应数据
             $responsePack = $this->getResponsePack();
-            $apiResponse = new ApiResponse($responseDataJson, $responsePack);
-            $response = $apiResponse->getResponse();
-            if (is_null($response)) {
+            $responseObject = $responsePack->unpack($responseDataJson);
+            if (is_null($responseObject)) {
                 $extra = [
                     'header' => $http->getResponseHeader(),
                     'body' => $http->getResponseBody()
                 ];
-                return ApiResponse::serverError('接口请求失败', '', $extra, $responsePack);
-            } else {
-                return $apiResponse;
+                $responseObject = ResponseObject::makeError('接口请求失败', '', $extra);
             }
+
+            return new ApiResponse($responseObject, $responsePack);
         } catch (\Exception $e) {
             $responsePack = $this->getResponsePack();
             $extra = [
@@ -131,7 +116,8 @@ class HubClient
                 'line' => $e->getLine(),
                 'file' => $e->getFile()
             ];
-            return ApiResponse::serverError('接口请求失败', '', $extra, $responsePack);
+            $responseObject = ResponseObject::makeError('接口请求失败', '', $extra);
+            return new ApiResponse($responseObject, $responsePack);
         }
     }
 
@@ -155,63 +141,4 @@ class HubClient
         $this->config = $config;
     }
 
-    /**
-     * 获取请求打包对象
-     *
-     * @return RequestPack
-     */
-    public function getRequestPack()
-    {
-        return $this->requestPack ? $this->requestPack : $this->getDefaultRequestPack();
-    }
-
-    /**
-     * 设置请求打包对象
-     *
-     * @param $requestPack
-     */
-    public function setRequestPack($requestPack)
-    {
-        $this->requestPack = $requestPack;
-    }
-
-    /**
-     * 获取默认请求打包对象
-     *
-     * @return RequestPack
-     */
-    protected function getDefaultRequestPack()
-    {
-        return RequestPack::getSingleton();
-    }
-
-    /**
-     * 获取回复打包对象
-     *
-     * @return ResponsePack
-     */
-    public function getResponsePack()
-    {
-        return $this->responsePack ? $this->responsePack : $this->getDefaultResponsePack();
-    }
-
-    /**
-     * 设置回复打包对象
-     *
-     * @param ResponsePack $responsePack
-     */
-    public function setResponsePack($responsePack)
-    {
-        $this->responsePack = $responsePack;
-    }
-
-    /**
-     * 获取默认回复打包对象
-     *
-     * @return ResponsePack
-     */
-    protected function getDefaultResponsePack()
-    {
-        return ResponsePack::getSingleton();
-    }
 }

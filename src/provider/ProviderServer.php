@@ -2,8 +2,9 @@
 
 namespace newday\gateway\provider;
 
-use newday\gateway\core\pack\RequestPack;
-use newday\gateway\core\pack\ResponsePack;
+use newday\gateway\core\constant\CodeConstant;
+use newday\gateway\core\objects\ResponseObject;
+use newday\gateway\core\traits\PackTrait;
 use newday\gateway\support\Request;
 use newday\gateway\core\api\Api;
 use newday\gateway\core\api\ApiRequest;
@@ -16,6 +17,8 @@ use newday\gateway\provider\api\ListApi;
 
 class ProviderServer
 {
+    use PackTrait;
+
     /**
      * 接口列表
      *
@@ -31,31 +34,13 @@ class ProviderServer
     protected $config;
 
     /**
-     * 请求打包对象
-     *
-     * @var RequestPack
-     */
-    protected $requestPack;
-
-    /**
-     * 回复打包对象
-     *
-     * @var ResponsePack
-     */
-    protected $responsePack;
-
-    /**
      * 构造函数
      *
      * @param ProviderConfig $config
-     * @param RequestPack $requestPack
-     * @param ResponsePack $responsePack
      */
-    public function __construct(ProviderConfig $config = null, RequestPack $requestPack = null, ResponsePack $responsePack = null)
+    public function __construct(ProviderConfig $config = null)
     {
         $config && $this->setConfig($config);
-        $requestPack && $this->setRequestPack($requestPack);
-        $responsePack && $this->setResponsePack($responsePack);
     }
 
     /**
@@ -98,13 +83,15 @@ class ProviderServer
             // 运行
             return $this->run();
         } catch (\Exception $e) {
+            $responsePack = $this->getResponsePack();
             $extra = [
                 'code' => $e->getCode(),
                 'msg' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => $e->getFile()
             ];
-            return ApiResponse::serverError('接口发生意外', '', $extra, $this->getResponsePack());
+            $responseObject = ResponseObject::makeError('接口发生意外', '', $extra);
+            return new ApiResponse($responseObject, $responsePack);
         }
     }
 
@@ -117,7 +104,9 @@ class ProviderServer
     {
         $timestamp = Request::getSingleton()->header(NameConstant::HEADER_NAME_API_TIMESTAMP);
         $signature = Request::getSingleton()->header(NameConstant::HEADER_NAME_API_SIGNATURE);
-        if (Signature::sign($this->config->getServerToken(), $timestamp) != $signature) {
+        if (empty($signature)) {
+            throw new ServerException('接口签名为空');
+        } elseif (Signature::sign($this->getConfig()->getServerToken(), $timestamp) != $signature) {
             throw new ServerException('接口签名验证失败');
         } elseif ($timestamp < time() - 60) {
             throw new ServerException('接口签名已经过期');
@@ -136,21 +125,47 @@ class ProviderServer
         if (empty($class)) {
             throw new ServerException('接口类名为空');
         } else {
-            return $this->applyApi($class);
+            $apiList = array_merge([
+                NameConstant::CLASS_API_LIST => ListApi::class,
+                NameConstant::CLASS_API_INTRO => IntroApi::class
+            ], $this->apiList);
+            if (isset($apiList[$class])) {
+                return $this->execApi($apiList[$class]);
+            } else {
+                throw new ServerException('接口类未注册');
+            }
         }
     }
 
     /**
-     * 服务失败
+     * 执行Api
      *
-     * @param string $msg
-     * @param string $data
-     * @param array $extra
+     * @param string $class
      * @return ApiResponse
+     * @throws ServerException
      */
-    public function serverError($msg = 'error', $data = '', $extra = [])
+    protected function execApi($class)
     {
-        return ApiResponse::serverError($msg, $data, $extra, $this->getResponsePack());
+        if (class_exists($class)) {
+            $api = new $class();
+            if ($api instanceof Api) {
+                $requestData = Request::getSingleton()->input();
+                $requestPack = $this->getRequestPack();
+
+                // 请求数据
+                $requestObject = $requestPack->unpack($requestData);
+                if (is_null($requestObject)) {
+                    throw new ServerException('解包请求数据失败');
+                }
+
+                $apiRequest = new ApiRequest($requestObject);
+                return $api->entry($apiRequest, $this);
+            } else {
+                throw new ServerException('无效的接口类');
+            }
+        } else {
+            throw new ServerException('接口类不存在');
+        }
     }
 
     /**
@@ -163,7 +178,7 @@ class ProviderServer
      */
     public function apiSuccess($msg = 'success', $data = '', $extra = [])
     {
-        return ApiResponse::apiSuccess($msg, $data, $extra, $this->getResponsePack());
+        return $this->apiData(CodeConstant::API_SUCCESS, $msg, $data, $extra);
     }
 
     /**
@@ -176,7 +191,7 @@ class ProviderServer
      */
     public function apiError($msg = 'error', $data = '', $extra = [])
     {
-        return ApiResponse::apiError($msg, $data, $extra, $this->getResponsePack());
+        return $this->apiData(CodeConstant::API_ERROR, $msg, $data, $extra);
     }
 
     /**
@@ -190,7 +205,9 @@ class ProviderServer
      */
     public function apiData($code, $msg = 'error', $data = '', $extra = [])
     {
-        return ApiResponse::apiData($code, $msg, $data, $extra, $this->getResponsePack());
+        $responsePack = $this->getResponsePack();
+        $responseObject = ResponseObject::make($code, $msg, $data, $extra);
+        return new ApiResponse($responseObject, $responsePack);
     }
 
     /**
@@ -213,88 +230,4 @@ class ProviderServer
         $this->config = $config;
     }
 
-    /**
-     * 获取请求打包对象
-     *
-     * @return RequestPack
-     */
-    public function getRequestPack()
-    {
-        return $this->requestPack;
-    }
-
-    /**
-     * 设置请求打包对象
-     *
-     * @param $requestPack
-     */
-    public function setRequestPack($requestPack)
-    {
-        $this->requestPack = $requestPack;
-    }
-
-    /**
-     * 获取回复打包对象
-     *
-     * @return ResponsePack
-     */
-    public function getResponsePack()
-    {
-        return $this->responsePack;
-    }
-
-    /**
-     * 设置回复打包对象
-     *
-     * @param ResponsePack $responsePack
-     */
-    public function setResponsePack($responsePack)
-    {
-        $this->responsePack = $responsePack;
-    }
-
-    /**
-     * 应用Api
-     *
-     * @param string $class
-     * @return ApiResponse
-     * @throws ServerException
-     */
-    protected function applyApi($class)
-    {
-        if ($class == NameConstant::CLASS_API_LIST) {
-            return $this->execApi(ListApi::class);
-        } elseif ($class == NameConstant::CLASS_API_INTRO) {
-            return $this->execApi(IntroApi::class);
-        } elseif (isset($this->apiList[$class])) {
-            return $this->execApi($class);
-        } else {
-            throw new ServerException('接口类未注册');
-        }
-    }
-
-    /**
-     * 执行Api
-     *
-     * @param string $class
-     * @return ApiResponse
-     * @throws ServerException
-     */
-    protected function execApi($class)
-    {
-        if (class_exists($class)) {
-            $api = new $class();
-            if ($api instanceof Api) {
-                $requestData = Request::getSingleton()->input();
-                $requestPack = $this->getRequestPack();
-                $request = new ApiRequest($requestData, $requestPack);
-
-                return $api->entry($request, $this);
-            } else {
-                throw new ServerException('无效的接口类');
-            }
-        } else {
-            throw new ServerException('接口类不存在');
-        }
-    }
 }

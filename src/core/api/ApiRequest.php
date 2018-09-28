@@ -4,7 +4,6 @@ namespace newday\gateway\core\api;
 
 use newday\gateway\support\Request;
 use newday\gateway\core\constant\NameConstant;
-use newday\gateway\core\pack\RequestPack;
 use newday\gateway\core\objects\RequestObject;
 
 class ApiRequest
@@ -18,37 +17,15 @@ class ApiRequest
     protected $request;
 
     /**
-     * 打包对象
-     *
-     * @var RequestPack
-     */
-    protected $pack;
-
-    /**
      * 构造函数
      *
-     * @param string $requestData
-     * @param RequestPack $pack
+     * @param RequestObject $request
      */
-    public function __construct($requestData = null, RequestPack $pack = null)
+    public function __construct($request = null)
     {
-        $pack && $this->setPack($pack);
-        $requestData && $this->loadRequestData($requestData);
+        $request && $this->setRequest($request);
     }
 
-    /**
-     * 加载请求数据
-     *
-     * @param string $requestData
-     * @return RequestObject|null
-     */
-    public function loadRequestData($requestData)
-    {
-        $pack = $this->getPack();
-        $request = $pack->unpack($requestData);
-        $this->setRequest($request);
-        return $request;
-    }
 
     /**
      * 获取请求对象
@@ -68,26 +45,6 @@ class ApiRequest
     public function setRequest(RequestObject $request)
     {
         $this->request = $request;
-    }
-
-    /**
-     * 获取打包对象
-     *
-     * @return RequestPack
-     */
-    public function getPack()
-    {
-        return $this->pack ? $this->pack : $this->getDefaultPack();
-    }
-
-    /**
-     * 设置打包对象
-     *
-     * @param RequestPack $pack
-     */
-    public function setPack(RequestPack $pack)
-    {
-        $this->pack = $pack;
     }
 
     /**
@@ -130,16 +87,6 @@ class ApiRequest
         } else {
             return $this->request->getFile($name, $default);
         }
-    }
-
-    /**
-     *  获取打包对象
-     *
-     * @return RequestPack
-     */
-    public function getDefaultPack()
-    {
-        return RequestPack::getSingleton();
     }
 
 }

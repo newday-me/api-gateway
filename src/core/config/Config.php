@@ -93,6 +93,10 @@ class Config
             $list = explode(static::CHAR_LINE, $serverIpListStr);
             $serverIpList = [];
             foreach ($list as $vo) {
+                if (!strpos($vo, static::CHAR_DIVIDE)) {
+                    continue;
+                }
+
                 list($host, $weight) = explode(static::CHAR_DIVIDE, $vo);
                 $serverIpList[] = [
                     'ip' => $host,

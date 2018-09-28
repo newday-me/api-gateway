@@ -6,12 +6,15 @@ use newday\gateway\support\Http;
 use newday\gateway\support\Request;
 use newday\gateway\core\Signature;
 use newday\gateway\core\api\ApiResponse;
+use newday\gateway\core\traits\PackTrait;
 use newday\gateway\core\constant\NameConstant;
 use newday\gateway\core\exception\ServerException;
-use newday\gateway\core\pack\ResponsePack;
+use newday\gateway\core\objects\ResponseObject;
 
 class ProviderClient
 {
+    use PackTrait;
+
     /**
      * 配置
      *
@@ -20,22 +23,13 @@ class ProviderClient
     public $config;
 
     /**
-     * 回复打包对象
-     *
-     * @var ResponsePack
-     */
-    protected $responsePack;
-
-    /**
      * 构造函数
      *
      * @param ProviderConfig $config
-     * @param ResponsePack $responsePack
      */
-    public function __construct(ProviderConfig $config = null, ResponsePack $responsePack = null)
+    public function __construct(ProviderConfig $config = null)
     {
         $config && $this->setConfig($config);
-        $this->setResponsePack($responsePack);
     }
 
     /**
@@ -49,16 +43,18 @@ class ProviderClient
     public function request($apiClass, $postData, $timeout = 0)
     {
         try {
+            $config = $this->getConfig();
+
             if (empty($apiClass)) {
                 throw new ServerException('接口类名为空');
             }
 
-            $serverUrl = $this->config->getServerUrl();
+            $serverUrl = $config->getServerUrl();
             if (empty($serverUrl)) {
                 throw new ServerException('接口服务地址为空');
             }
 
-            $serverToken = $this->config->getServerToken();
+            $serverToken = $config->getServerToken();
             if (empty($serverToken)) {
                 throw new ServerException('接口服务令牌为空');
             }
@@ -79,38 +75,37 @@ class ProviderClient
             ];
 
             // 随机主机
-            $serverIp = $this->config->getServerIpRand();
+            $serverIp = $config->getServerIpRand();
             if ($serverIp) {
                 $parse = parse_url($serverUrl);
                 $serverUrl = str_replace($parse['host'], $serverIp, $serverUrl);
                 $header['Host'] = $parse['host'];
             }
 
-            $header = array_merge($header, $this->config->getServerHeader());
+            $header = array_merge($header, $config->getServerHeader());
 
-            // 选项
-            $timeOut = $timeout ? $timeout : $this->config->getTimeout();
+            // 请求选项
+            $timeOut = $timeout ? $timeout : $config->getTimeout();
             $option = [
                 'timeout' => $timeOut
             ];
 
             // 请求接口
-            $http = Http::getSingleton();
+            $http = Http::getInstance();
             $responseDataJson = $http->request($serverUrl, $postData, $header, $option);
 
-            // 结果处理
+            // 响应数据
             $responsePack = $this->getResponsePack();
-            $apiResponse = new ApiResponse($responseDataJson, $responsePack);
-            $response = $apiResponse->getResponse();
-            if (is_null($response)) {
+            $responseObject = $responsePack->unpack($responseDataJson);
+            if (is_null($responseObject)) {
                 $extra = [
                     'header' => $http->getResponseHeader(),
                     'body' => $http->getResponseBody()
                 ];
-                return ApiResponse::serverError('接口请求失败', '', $extra, $responsePack);
-            } else {
-                return $apiResponse;
+                $responseObject = ResponseObject::makeError('接口请求失败', '', $extra);
             }
+
+            return new ApiResponse($responseObject, $responsePack);
         } catch (\Exception $e) {
             $responsePack = $this->getResponsePack();
             $extra = [
@@ -119,7 +114,8 @@ class ProviderClient
                 'line' => $e->getLine(),
                 'file' => $e->getFile()
             ];
-            return ApiResponse::serverError('接口请求失败', '', $extra, $responsePack);
+            $responseObject = ResponseObject::makeError('接口请求失败', '', $extra);
+            return new ApiResponse($responseObject, $responsePack);
         }
     }
 
@@ -141,36 +137,6 @@ class ProviderClient
     public function setConfig($config)
     {
         $this->config = $config;
-    }
-
-    /**
-     * 获取回复打包对象
-     *
-     * @return ResponsePack
-     */
-    public function getResponsePack()
-    {
-        return $this->responsePack ? $this->responsePack : $this->getDefaultResponsePack();
-    }
-
-    /**
-     * 设置回复打包对象
-     *
-     * @param ResponsePack $responsePack
-     */
-    public function setResponsePack($responsePack)
-    {
-        $this->responsePack = $responsePack;
-    }
-
-    /**
-     * 获取默认回复打包对象
-     *
-     * @return ResponsePack
-     */
-    protected function getDefaultResponsePack()
-    {
-        return ResponsePack::getSingleton();
     }
 
 }
