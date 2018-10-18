@@ -1,7 +1,9 @@
 <?php
 
-namespace newday\gateway\core\api;
+namespace newday\gateway\core\base;
 
+use newday\gateway\core\api\ApiRequest;
+use newday\gateway\core\api\ApiResponse;
 use newday\gateway\core\objects\IntroObject;
 use newday\gateway\provider\ProviderServer;
 

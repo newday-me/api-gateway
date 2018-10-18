@@ -1,26 +1,17 @@
 <?php
 
-namespace newday\gateway\support;
+namespace newday\gateway\core\support;
 
-use newday\gateway\core\traits\InstanceTrait;
+use newday\gateway\core\interfaces\HttpInterface;
 
-class Http
+class Http implements HttpInterface
 {
-
-    // 实例trait
-    use InstanceTrait;
-
     /**
-     * 浏览器标识
-     */
-    const DEFAULT_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.75 Safari/537.36';
-
-    /**
-     * cookie数组
+     * 状态码
      *
-     * @var array
+     * @var integer
      */
-    protected $cookies;
+    protected $code;
 
     /**
      * 头信息
@@ -35,6 +26,16 @@ class Http
      * @var string
      */
     protected $body;
+
+    /**
+     * 获取状态码
+     *
+     * @return int
+     */
+    public function getResponseCode()
+    {
+        return $this->code;
+    }
 
     /**
      * 获取响应头
@@ -57,93 +58,6 @@ class Http
     }
 
     /**
-     * 获取响应头信息
-     *
-     * @return array
-     */
-    public function getHeaders()
-    {
-        $headers = [];
-        $pattern = '#(.*?): (.*?);#i';
-        if (preg_match_all($pattern, $this->header, $match)) {
-            foreach ($match[1] as $co => $vo) {
-                if (!isset($headers[$vo])) {
-                    $headers[$vo] = [];
-                }
-                $headers[$vo][] = $match[2][$co];
-            }
-        }
-        return $headers;
-    }
-
-    /**
-     * 获取响应头信息字符串
-     *
-     * @return string[]
-     */
-    public function getHeaderStr()
-    {
-        $headers = [];
-        foreach ($this->getHeaders() as $co => $vo) {
-            foreach ($vo as $ko) {
-                $headers[] = $co . ': ' . $ko;
-            }
-        }
-        return $headers;
-    }
-
-    /**
-     * 获取头信息
-     *
-     * @param string $name
-     * @return string|null
-     */
-    public function getHeaderValue($name)
-    {
-        $pattern = '#' . $name . ': (.*)#i';
-        if (preg_match($pattern, $this->getResponseHeader(), $match)) {
-            return $match[1];
-        } else {
-            return null;
-        }
-    }
-
-    /**
-     * 获取cookie
-     *
-     * @return array
-     */
-    public function getCookies()
-    {
-        $cookies = [];
-        $pattern = '#Set-Cookie: (.*?)=(.*?);#im';
-        if (preg_match_all($pattern, $this->header . $this->body, $match)) {
-            foreach ($match[1] as $co => $vo) {
-                if (strtoupper($match[2][$co]) != 'EXPIRED') {
-                    $cookies[$vo] = $match[2][$co];
-                }
-            }
-        }
-        return $cookies;
-    }
-
-    /**
-     * 获取cookie字符串
-     *
-     * @return string
-     */
-    public function getCookieStr()
-    {
-        $cookie = '';
-        foreach ($this->getCookies() as $co => $vo) {
-            if (strtoupper($vo) != 'EXPIRED') {
-                $cookie .= $co . '=' . $vo . ';';
-            }
-        }
-        return $cookie;
-    }
-
-    /**
      * 请求
      *
      * @param string $url
@@ -154,6 +68,8 @@ class Http
      */
     public function request($url, $data = null, $header = null, $option = [])
     {
+        $this->resetHttp();
+
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
@@ -179,7 +95,7 @@ class Http
         }
 
         // 代理设置
-        if (isset($option['proxy'])) {
+        if (isset($option['proxy']) && is_array($option['proxy'])) {
             $proxy = $option['proxy'];
             curl_setopt($ch, CURLOPT_PROXYAUTH, CURLAUTH_BASIC);
             curl_setopt($ch, CURLOPT_PROXY, $proxy['host']);
@@ -201,10 +117,6 @@ class Http
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $option['location']);
         }
 
-        // 浏览器标识
-        $agent = isset($option['agent']) ? $option['agent'] : self::DEFAULT_AGENT;
-        curl_setopt($ch, CURLOPT_USERAGENT, $agent);
-
         $content = curl_exec($ch);
 
         // 请求错误
@@ -214,6 +126,7 @@ class Http
 
         // 分离头和正文
         $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        $this->code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $this->header = substr($content, 0, $headerSize);
         $this->body = substr($content, $headerSize);
 
@@ -224,6 +137,16 @@ class Http
         } else {
             return $this->body;
         }
+    }
+
+    /**
+     * 重置对象
+     */
+    protected function resetHttp()
+    {
+        $this->code = null;
+        $this->header = null;
+        $this->body = null;
     }
 
     /**

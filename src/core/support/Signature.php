@@ -1,8 +1,10 @@
 <?php
 
-namespace newday\gateway\core;
+namespace newday\gateway\core\support;
 
-class Signature
+use newday\gateway\core\interfaces\SignatureInterface;
+
+class Signature implements SignatureInterface
 {
 
     /**
@@ -12,7 +14,7 @@ class Signature
      * @param int $timestamp
      * @return string
      */
-    public static function sign($token, $timestamp)
+    public function generate($token, $timestamp)
     {
         return md5(base64_decode($token . '_' . $timestamp));
     }

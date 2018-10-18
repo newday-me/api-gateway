@@ -2,7 +2,7 @@
 
 namespace newday\gateway\provider\api;
 
-use newday\gateway\core\api\Api;
+use newday\gateway\core\base\Api;
 use newday\gateway\core\api\ApiRequest;
 use newday\gateway\core\constant\NameConstant;
 use newday\gateway\core\objects\IntroObject;
@@ -23,8 +23,33 @@ class IntroApi extends Api
         $intro->setInfo('获取接口说明');
         $intro->setInput([
             'class' => [
-                'string',
-                '接口类名'
+                'type' => 'string',
+                'desc' => '接口类名'
+            ]
+        ]);
+        $intro->setOutput([
+            'type' => 'object',
+            'param' => [
+                'class' => [
+                    'type' => 'string',
+                    'desc' => '接口类名'
+                ],
+                'name' => [
+                    'type' => 'string',
+                    'desc' => '接口名'
+                ],
+                'info' => [
+                    'type' => 'string',
+                    'desc' => '接口介绍'
+                ],
+                'input' => [
+                    'type' => 'object',
+                    'desc' => '接口参数'
+                ],
+                'output' => [
+                    'type' => 'object',
+                    'desc' => '接口结果'
+                ]
             ]
         ]);
     }

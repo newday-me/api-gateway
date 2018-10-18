@@ -2,9 +2,10 @@
 
 namespace newday\gateway\core\pack;
 
+use newday\gateway\core\interfaces\PackInterface;
 use newday\gateway\core\objects\ResponseObject;
 
-class ResponsePack extends Pack
+class ResponsePack implements PackInterface
 {
     /**
      * 打包数据

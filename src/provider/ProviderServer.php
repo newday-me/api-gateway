@@ -2,29 +2,18 @@
 
 namespace newday\gateway\provider;
 
-use newday\gateway\core\constant\CodeConstant;
-use newday\gateway\core\objects\ResponseObject;
-use newday\gateway\core\traits\PackTrait;
-use newday\gateway\support\Request;
-use newday\gateway\core\api\Api;
+use newday\gateway\core\base\Api;
+use newday\gateway\core\base\Server;
 use newday\gateway\core\api\ApiRequest;
 use newday\gateway\core\api\ApiResponse;
-use newday\gateway\core\Signature;
 use newday\gateway\core\constant\NameConstant;
 use newday\gateway\core\exception\ServerException;
+use newday\gateway\core\support\Response;
 use newday\gateway\provider\api\IntroApi;
 use newday\gateway\provider\api\ListApi;
 
-class ProviderServer
+class ProviderServer extends Server
 {
-    use PackTrait;
-
-    /**
-     * 接口列表
-     *
-     * @var array
-     */
-    protected $apiList = [];
 
     /**
      * 配置
@@ -34,28 +23,31 @@ class ProviderServer
     protected $config;
 
     /**
-     * 构造函数
+     * 接口列表
      *
-     * @param ProviderConfig $config
+     * @var array
      */
-    public function __construct(ProviderConfig $config = null)
-    {
-        $config && $this->setConfig($config);
-    }
+    protected $apiList = [];
 
     /**
      * 注册接口
      *
-     * @param array|string $api
+     * @param string $api
      */
     public function registerApi($api)
     {
-        if (is_array($api)) {
-            foreach ($api as $vo) {
-                $this->registerApi($vo);
-            }
-        } else {
-            $this->apiList[$api] = $api;
+        $this->apiList[$api] = $api;
+    }
+
+    /**
+     * 批量注册接口
+     *
+     * @param array $list
+     */
+    public function registerApiMulti($list)
+    {
+        foreach ($list as $value) {
+            $this->registerApi($value);
         }
     }
 
@@ -72,45 +64,67 @@ class ProviderServer
     /**
      * 服务入口
      *
+     * @param bool $valid
      * @return ApiResponse
      */
-    public function entry()
+    public function entry($valid = true)
     {
         try {
             // 签名验证
-            $this->valid();
+            $valid && $this->valid();
 
             // 运行
             return $this->run();
         } catch (\Exception $e) {
-            $responsePack = $this->getResponsePack();
             $extra = [
                 'code' => $e->getCode(),
                 'msg' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => $e->getFile()
             ];
-            $responseObject = ResponseObject::makeError('接口发生意外', '', $extra);
-            return new ApiResponse($responseObject, $responsePack);
+            return $this->apiError('接口发生意外', '', $extra);
         }
+    }
+
+    /**
+     * 构造响应
+     *
+     * @param ApiResponse $apiResponse
+     * @return Response
+     */
+    public function buildResponse($apiResponse)
+    {
+        $responsePack = $this->getResponsePack();
+        $data = $apiResponse->getResponse()->toArray();
+        $content = $responsePack->pack($data);
+        return new Response($content);
     }
 
     /**
      * 签名验证
      *
+     * @return $this
      * @throws ServerException
      */
     protected function valid()
     {
-        $timestamp = Request::getSingleton()->header(NameConstant::HEADER_NAME_API_TIMESTAMP);
-        $signature = Request::getSingleton()->header(NameConstant::HEADER_NAME_API_SIGNATURE);
+        $request = $this->getRequest();
+        $timestamp = $request->header(NameConstant::HEADER_NAME_API_TIMESTAMP);
+        $signature = $request->header(NameConstant::HEADER_NAME_API_SIGNATURE);
         if (empty($signature)) {
             throw new ServerException('接口签名为空');
-        } elseif (Signature::sign($this->getConfig()->getServerToken(), $timestamp) != $signature) {
+        }
+
+        $serverToken = $this->getConfig()->getServerToken();
+        if ($this->getSignature()->generate($serverToken, $timestamp) != $signature) {
             throw new ServerException('接口签名验证失败');
-        } elseif ($timestamp < time() - 60) {
+        }
+
+        if ($timestamp < time() - 60) {
             throw new ServerException('接口签名已经过期');
         }
+
+        return $this;
     }
 
     /**
@@ -119,22 +133,23 @@ class ProviderServer
      * @return ApiResponse
      * @throws ServerException
      */
-    public function run()
+    protected function run()
     {
-        $class = Request::getSingleton()->header(NameConstant::HEADER_NAME_API_CLASS);
+        $request = $this->getRequest();
+        $class = $request->header(NameConstant::HEADER_NAME_API_CLASS);
         if (empty($class)) {
             throw new ServerException('接口类名为空');
-        } else {
-            $apiList = array_merge([
-                NameConstant::CLASS_API_LIST => ListApi::class,
-                NameConstant::CLASS_API_INTRO => IntroApi::class
-            ], $this->apiList);
-            if (isset($apiList[$class])) {
-                return $this->execApi($apiList[$class]);
-            } else {
-                throw new ServerException('接口类未注册');
-            }
         }
+
+        $apiList = array_merge([
+            NameConstant::CLASS_API_LIST => ListApi::class,
+            NameConstant::CLASS_API_INTRO => IntroApi::class
+        ], $this->apiList);
+        if (!isset($apiList[$class])) {
+            throw new ServerException('接口类未注册');
+        }
+
+        return $this->execApi($apiList[$class]);
     }
 
     /**
@@ -149,10 +164,12 @@ class ProviderServer
         if (class_exists($class)) {
             $api = new $class();
             if ($api instanceof Api) {
-                $requestData = Request::getSingleton()->input();
-                $requestPack = $this->getRequestPack();
+                // 源数据
+                $request = $this->getRequest();
+                $requestData = $request->input();
 
                 // 请求数据
+                $requestPack = $this->getRequestPack();
                 $requestObject = $requestPack->unpack($requestData);
                 if (is_null($requestObject)) {
                     throw new ServerException('解包请求数据失败');
@@ -169,58 +186,6 @@ class ProviderServer
     }
 
     /**
-     * 接口成功
-     *
-     * @param string $msg
-     * @param string $data
-     * @param array $extra
-     * @return ApiResponse
-     */
-    public function apiSuccess($msg = 'success', $data = '', $extra = [])
-    {
-        return $this->apiData(CodeConstant::API_SUCCESS, $msg, $data, $extra);
-    }
-
-    /**
-     * 接口失败
-     *
-     * @param string $msg
-     * @param string $data
-     * @param array $extra
-     * @return ApiResponse
-     */
-    public function apiError($msg = 'error', $data = '', $extra = [])
-    {
-        return $this->apiData(CodeConstant::API_ERROR, $msg, $data, $extra);
-    }
-
-    /**
-     * 接口数据
-     *
-     * @param $code
-     * @param string $msg
-     * @param string $data
-     * @param array $extra
-     * @return ApiResponse
-     */
-    public function apiData($code, $msg = 'error', $data = '', $extra = [])
-    {
-        $responsePack = $this->getResponsePack();
-        $responseObject = ResponseObject::make($code, $msg, $data, $extra);
-        return new ApiResponse($responseObject, $responsePack);
-    }
-
-    /**
-     * 获取配置
-     *
-     * @return ProviderConfig
-     */
-    public function getConfig()
-    {
-        return $this->config;
-    }
-
-    /**
      * 设置配置
      *
      * @param ProviderConfig $config
@@ -228,6 +193,16 @@ class ProviderServer
     public function setConfig($config)
     {
         $this->config = $config;
+    }
+
+    /**
+     * 获取配置
+     *
+     * @return ProviderConfig
+     */
+    protected function getConfig()
+    {
+        return $this->config;
     }
 
 }

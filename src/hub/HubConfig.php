@@ -2,7 +2,7 @@
 
 namespace newday\gateway\hub;
 
-use newday\gateway\core\config\Config;
+use newday\gateway\core\base\Config;
 
 class HubConfig extends Config
 {

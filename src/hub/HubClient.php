@@ -2,17 +2,13 @@
 
 namespace newday\gateway\hub;
 
-use newday\gateway\support\Http;
-use newday\gateway\core\Signature;
-use newday\gateway\core\traits\PackTrait;
 use newday\gateway\core\api\ApiResponse;
+use newday\gateway\core\base\Client;
 use newday\gateway\core\constant\NameConstant;
-use newday\gateway\core\objects\ResponseObject;
 use newday\gateway\core\exception\ServerException;
 
-class HubClient
+class HubClient extends Client
 {
-    use PackTrait;
 
     /**
      * 配置
@@ -61,7 +57,7 @@ class HubClient
 
             // 签名
             $timestamp = time();
-            $signature = Signature::sign($appToken, $timestamp);
+            $signature = $this->getSignature()->generate($appToken, $timestamp);
 
             // 请求头
             $header = [
@@ -93,7 +89,7 @@ class HubClient
             $requestData = $requestPack->pack($postData);
 
             // 请求接口
-            $http = Http::getInstance();
+            $http = $this->getHttp();
             $responseDataJson = $http->request($serverUrl, $requestData, $header, $option);
 
             // 响应数据
@@ -104,20 +100,18 @@ class HubClient
                     'header' => $http->getResponseHeader(),
                     'body' => $http->getResponseBody()
                 ];
-                $responseObject = ResponseObject::makeError('接口请求失败', '', $extra);
+                return $this->apiError('接口请求失败', '', $extra);
+            } else {
+                return new ApiResponse($responseObject);
             }
-
-            return new ApiResponse($responseObject, $responsePack);
         } catch (\Exception $e) {
-            $responsePack = $this->getResponsePack();
             $extra = [
                 'code' => $e->getCode(),
                 'msg' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => $e->getFile()
             ];
-            $responseObject = ResponseObject::makeError('接口请求失败', '', $extra);
-            return new ApiResponse($responseObject, $responsePack);
+            return $this->apiError('接口请求失败', '', $extra);
         }
     }
 

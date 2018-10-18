@@ -2,6 +2,7 @@
 
 namespace newday\gateway\core\objects;
 
+use newday\gateway\core\base\Object;
 use newday\gateway\core\constant\CodeConstant;
 
 class ResponseObject extends Object
@@ -34,51 +35,6 @@ class ResponseObject extends Object
      * @var mixed
      */
     protected $extra = [];
-
-    /**
-     * 构造对象
-     *
-     * @param integer $code
-     * @param string $msg
-     * @param string $data
-     * @param array $extra
-     * @return static
-     */
-    public static function make($code, $msg = '', $data = '', $extra = [])
-    {
-        $object = new static();
-        $object->setCode($code);
-        $object->setMsg($msg);
-        $object->setData($data);
-        $object->setExtra($extra);
-        return $object;
-    }
-
-    /**
-     * 成功对象
-     *
-     * @param string $msg
-     * @param string $data
-     * @param array $extra
-     * @return ResponseObject
-     */
-    public function makeSuccess($msg = '', $data = '', $extra = [])
-    {
-        return self::make(CodeConstant::API_SUCCESS, $msg, $data, $extra);
-    }
-
-    /**
-     * 失败对象
-     *
-     * @param string $msg
-     * @param string $data
-     * @param array $extra
-     * @return ResponseObject
-     */
-    public static function makeError($msg = '', $data = '', $extra = [])
-    {
-        return self::make(CodeConstant::API_ERROR, $msg, $data, $extra);
-    }
 
     /**
      * 是否成功

@@ -2,7 +2,7 @@
 
 namespace newday\gateway\provider\api;
 
-use newday\gateway\core\api\Api;
+use newday\gateway\core\base\Api;
 use newday\gateway\core\api\ApiRequest;
 use newday\gateway\core\objects\IntroObject;
 use newday\gateway\provider\ProviderServer;
@@ -20,12 +20,8 @@ class BlankApi extends Api
     {
         $intro->setName('');
         $intro->setInfo('');
-        $intro->setInput([
-            'class' => [
-                'string',
-                '接口类名'
-            ]
-        ]);
+        $intro->setInput([]);
+        $intro->setOutput([]);
     }
 
     /**

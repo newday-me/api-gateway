@@ -2,18 +2,13 @@
 
 namespace newday\gateway\provider;
 
-use newday\gateway\support\Http;
-use newday\gateway\support\Request;
-use newday\gateway\core\Signature;
 use newday\gateway\core\api\ApiResponse;
-use newday\gateway\core\traits\PackTrait;
+use newday\gateway\core\base\Client;
 use newday\gateway\core\constant\NameConstant;
 use newday\gateway\core\exception\ServerException;
-use newday\gateway\core\objects\ResponseObject;
 
-class ProviderClient
+class ProviderClient extends Client
 {
-    use PackTrait;
 
     /**
      * 配置
@@ -61,15 +56,11 @@ class ProviderClient
 
             // 签名
             $timestamp = time();
-            $signature = Signature::sign($serverToken, $timestamp);
-
-            // 请求IP
-            $requestIp = Request::getSingleton()->server('remote_addr');
+            $signature = $this->getSignature()->generate($serverToken, $timestamp);
 
             // 请求头
             $header = [
                 NameConstant::HEADER_NAME_API_CLASS => $apiClass,
-                NameConstant::HEADER_NAME_REQUEST_IP => $requestIp,
                 NameConstant::HEADER_NAME_API_TIMESTAMP => $timestamp,
                 NameConstant::HEADER_NAME_API_SIGNATURE => $signature
             ];
@@ -91,7 +82,7 @@ class ProviderClient
             ];
 
             // 请求接口
-            $http = Http::getInstance();
+            $http = $this->getHttp();
             $responseDataJson = $http->request($serverUrl, $postData, $header, $option);
 
             // 响应数据
@@ -102,20 +93,18 @@ class ProviderClient
                     'header' => $http->getResponseHeader(),
                     'body' => $http->getResponseBody()
                 ];
-                $responseObject = ResponseObject::makeError('接口请求失败', '', $extra);
+                return $this->apiError('接口请求失败', '', $extra);
+            } else {
+                return new ApiResponse($responseObject);
             }
-
-            return new ApiResponse($responseObject, $responsePack);
         } catch (\Exception $e) {
-            $responsePack = $this->getResponsePack();
             $extra = [
                 'code' => $e->getCode(),
                 'msg' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => $e->getFile()
             ];
-            $responseObject = ResponseObject::makeError('接口请求失败', '', $extra);
-            return new ApiResponse($responseObject, $responsePack);
+            return $this->apiError('接口请求失败', '', $extra);
         }
     }
 

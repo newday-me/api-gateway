@@ -2,6 +2,8 @@
 
 namespace newday\gateway\core\objects;
 
+use newday\gateway\core\base\Object;
+
 class RequestObject extends Object
 {
 

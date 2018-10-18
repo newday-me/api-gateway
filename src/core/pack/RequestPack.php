@@ -3,9 +3,10 @@
 namespace newday\gateway\core\pack;
 
 use CURLFile;
+use newday\gateway\core\interfaces\PackInterface;
 use newday\gateway\core\objects\RequestObject;
 
-class RequestPack extends Pack
+class RequestPack implements PackInterface
 {
     /**
      * 临时文件
@@ -85,7 +86,7 @@ class RequestPack extends Pack
      * @param string $file
      * @return array
      */
-    public function packFile($file)
+    protected function packFile($file)
     {
         $name = basename($file);
         if (is_file($file) && is_readable($file)) {
@@ -108,6 +109,28 @@ class RequestPack extends Pack
                 'size' => 0
             ];
         }
+    }
+
+    /**
+     * 编码内容
+     *
+     * @param string $content
+     * @return string
+     */
+    protected function encodeContent($content)
+    {
+        return base64_encode($content);
+    }
+
+    /**
+     * 解码内容
+     *
+     * @param string $content
+     * @return bool|string
+     */
+    protected function decodeContent($content)
+    {
+        return base64_decode($content);
     }
 
     /**

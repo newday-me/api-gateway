@@ -30,11 +30,6 @@ class NameConstant
     const HEADER_NAME_API_CLASS = 'Api-Class';
 
     /**
-     * 请求IP
-     */
-    const HEADER_NAME_REQUEST_IP = 'Request-Ip';
-
-    /**
      * 接口列表类
      */
     const CLASS_API_LIST = '/_/api/list';

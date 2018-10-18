@@ -1,14 +1,11 @@
 <?php
 
-namespace newday\gateway\support;
+namespace newday\gateway\core\support;
 
-use newday\gateway\core\traits\InstanceTrait;
+use newday\gateway\core\interfaces\RequestInterface;
 
-class Request
+class Request implements RequestInterface
 {
-    // 实例trait
-    use InstanceTrait;
-
     /**
      * server参数
      *
@@ -112,7 +109,7 @@ class Request
     }
 
     /**
-     * 获取输入流
+     * 获取原始输入
      *
      * @return string
      */

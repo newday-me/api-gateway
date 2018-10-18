@@ -2,8 +2,6 @@
 
 namespace newday\gateway\core\api;
 
-use newday\gateway\support\Response;
-use newday\gateway\core\pack\ResponsePack;
 use newday\gateway\core\objects\ResponseObject;
 
 class ApiResponse
@@ -16,34 +14,15 @@ class ApiResponse
      */
     protected $response;
 
-    /**
-     * 打包对象
-     *
-     * @var ResponsePack
-     */
-    protected $pack;
 
     /**
      * 构造函数
      *
      * @param ResponseObject $response
-     * @param ResponsePack $pack
      */
-    public function __construct($response = null, ResponsePack $pack = null)
+    public function __construct($response = null)
     {
         $response && $this->setResponse($response);
-        $pack && $this->setResponsePack($pack);
-    }
-
-    /**
-     * 输出响应
-     */
-    public function send()
-    {
-        $pack = $this->getResponsePack();
-        $data = $this->getResponse()->toArray();
-        $content = $pack->pack($data);
-        Response::getSingleton()->send($content);
     }
 
     /**
@@ -67,23 +46,53 @@ class ApiResponse
     }
 
     /**
-     * 获取打包对象
+     * 是否成功
      *
-     * @return ResponsePack
+     * @return bool
      */
-    public function getResponsePack()
+    public function isSuccess()
     {
-        return $this->pack;
+        return $this->response->isSuccess();
     }
 
     /**
-     * 设置打包对象
+     * 获取状态码
      *
-     * @param ResponsePack $pack
+     * @return int
      */
-    public function setResponsePack(ResponsePack $pack)
+    public function getCode()
     {
-        $this->pack = $pack;
+        return $this->response->getCode();
+    }
+
+    /**
+     * 获取提示
+     *
+     * @return string
+     */
+    public function getMsg()
+    {
+        return $this->response->getMsg();
+    }
+
+    /**
+     * 获取数据
+     *
+     * @return mixed
+     */
+    public function getData()
+    {
+        return $this->response->getData();
+    }
+
+    /**
+     * 获取额外数据
+     *
+     * @return mixed
+     */
+    public function getExtra()
+    {
+        return $this->response->getExtra();
     }
 
 }

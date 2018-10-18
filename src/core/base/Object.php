@@ -1,6 +1,6 @@
 <?php
 
-namespace newday\gateway\core\objects;
+namespace newday\gateway\core\base;
 
 abstract class Object implements \JsonSerializable
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace newday\gateway\core\config;
+namespace newday\gateway\core\base;
 
 class Config
 {

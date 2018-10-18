@@ -2,8 +2,6 @@
 
 namespace newday\gateway\core\api;
 
-use newday\gateway\support\Request;
-use newday\gateway\core\constant\NameConstant;
 use newday\gateway\core\objects\RequestObject;
 
 class ApiRequest
@@ -26,17 +24,6 @@ class ApiRequest
         $request && $this->setRequest($request);
     }
 
-
-    /**
-     * 获取请求对象
-     *
-     * @return RequestObject
-     */
-    public function getRequest()
-    {
-        return $this->request;
-    }
-
     /**
      * 设置请求数据
      *
@@ -45,16 +32,6 @@ class ApiRequest
     public function setRequest(RequestObject $request)
     {
         $this->request = $request;
-    }
-
-    /**
-     * 获取请求IP
-     *
-     * @return string
-     */
-    public function getRequestIp()
-    {
-        return Request::getSingleton()->header(NameConstant::HEADER_NAME_REQUEST_IP);
     }
 
     /**

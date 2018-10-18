@@ -2,7 +2,7 @@
 
 namespace newday\gateway\provider;
 
-use newday\gateway\core\config\Config;
+use newday\gateway\core\base\Config;
 
 class ProviderConfig extends Config
 {
