@@ -2,7 +2,7 @@
 
 namespace newday\gateway\core\base;
 
-abstract class Object implements \JsonSerializable
+abstract class Obj implements \JsonSerializable
 {
 
     /**

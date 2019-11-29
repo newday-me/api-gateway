@@ -2,9 +2,9 @@
 
 namespace newday\gateway\core\objects;
 
-use newday\gateway\core\base\Object;
+use newday\gateway\core\base\Obj;
 
-class RequestObject extends Object
+class RequestObject extends Obj
 {
 
     /**

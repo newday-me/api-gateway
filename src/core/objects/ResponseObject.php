@@ -2,10 +2,10 @@
 
 namespace newday\gateway\core\objects;
 
-use newday\gateway\core\base\Object;
+use newday\gateway\core\base\Obj;
 use newday\gateway\core\constant\CodeConstant;
 
-class ResponseObject extends Object
+class ResponseObject extends Obj
 {
 
     /**
